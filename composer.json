@@ -1,0 +1,16 @@
+{
+    "name": "bdogan/php-database-tools",
+    "authors": [
+        {
+            "name": "Burak Doğan",
+            "email": "me@burak-dogan.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "autoload": {
+        "psr-0": {
+            "PhpDatabaseTools": "src/"
+        }
+    }
+}
