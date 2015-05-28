@@ -103,6 +103,14 @@ class Mysql {
     }
 
     /**
+     * Get the status for the request table.
+     * @return resource A resultset resource
+     */
+    function getStatus($table) {
+      return mysql_query(sprintf('SELECT * FROM information_schema.`TABLES` T,information_schema.`COLLATION_CHARACTER_SET_APPLICABILITY` CCSA WHERE CCSA.collation_name = T.table_collation AND T.table_schema = \'%s\' AND T.table_name = \'%s\'', $this->config["database"], $table));
+    }
+
+    /**
      * Get the triggers for the request table.
      * @return resource A resultset resource
      */

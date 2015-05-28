@@ -2,6 +2,8 @@
 
 namespace PhpDatabaseTools;
 
+use Exception;
+
 class Generator {
 
   private $connection;
@@ -30,6 +32,7 @@ class Generator {
   public function Generate($config){
     $this->connect($config);
 
+    $dbStructure = array();
     $tableStructure = array();
 
     try
@@ -39,7 +42,8 @@ class Generator {
         $tableStructure[$table] = array(
           "columns" => $this->tableColumns($table), // Get Columns
           "indexes" => $this->index($table), // Get Indexes
-          "triggers" => $this->trigger($table) // Get Triggers
+          "triggers" => $this->trigger($table), // Get Triggers
+          "status" => $this->status($table) // Get Status
         );
       }
     }
@@ -52,7 +56,23 @@ class Generator {
       $this->close();
     }
 
-    return $tableStructure;
+    $dbStructure["tables"] = $tableStructure;
+
+    return $dbStructure;
+  }
+
+  public function status($table)
+  {
+    $status = array();
+    if (!($result = $this->connection->getStatus($table))) { return $status; }
+    while($row = $this->connection->row($result)) {
+      $status = array(
+        'Engine' => $row['ENGINE'],
+        'Collation' => $row['COLLATION_NAME'],
+        'Charset' => $row['CHARACTER_SET_NAME']
+      );
+    }
+    return $status;
   }
 
   public function tables(){

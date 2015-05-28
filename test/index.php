@@ -1,8 +1,8 @@
 <?php
   require_once __DIR__ . '/../vendor/autoload.php';
 
-  $referanceDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "toor", "database" => "reform_template");
-  $targetDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "toor", "database" => "reform_2011_08_204");
+  $referanceDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "", "database" => "reform_template");
+  $targetDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "", "database" => "reform_2011_08_204");
   $Generator = new PhpDatabaseTools\Generator();
 ?>
 <html>
@@ -23,35 +23,35 @@
         </div>
 
           <div class="col-xs-6">
-            <h3>Table Schema <small>Referance Database</small></h3>
+            <h3>DB1 Schema <small>Referance Database</small></h3>
             <pre class="pre-scrollable"><?php print_r($refDbSchema = $Generator->Generate($referanceDatabase)); ?></pre>
           </div>
           <div class="col-xs-6">
-            <h3>Table Schema <small>Target Database</small></h3>
+            <h3>DB2 Schema <small>Target Database</small></h3>
             <pre class="pre-scrollable"><?php print_r($targetDbSchema = $Generator->Generate($targetDatabase)); ?></pre>
           </div>
 
           <div class="col-xs-6">
-            <h3>Table Hash <small>Referance Database</small></h3>
+            <h3>DB1 Hash <small>Referance Database</small></h3>
             <pre class="pre-scrollable"><?php print_r(PhpDatabaseTools\Compare::GenerateHash($refDbSchema)); ?></pre>
           </div>
           <div class="col-xs-6">
-            <h3>Table Hash <small>Target Database</small></h3>
+            <h3>DB2 Hash <small>Target Database</small></h3>
             <pre class="pre-scrollable"><?php print_r(PhpDatabaseTools\Compare::GenerateHash($targetDbSchema)); ?></pre>
           </div>
 
           <div class="col-xs-6">
-            <h3>Compare Result</h3>
+            <h3>[DB1,DB2] Compare Result</h3>
             <pre class="pre-scrollable"><?php print_r(PhpDatabaseTools\Compare::getDiff($refDbSchema, $targetDbSchema)); ?></pre>
           </div>
           <div class="col-xs-6">
-            <h3>Need Upgrade</h3>
-            <pre class="pre-scrollable"><?php echo PhpDatabaseTools\Compare::needUpgrade($refDbSchema, $targetDbSchema) ? "Yes" : "No"; ?></pre>
+            <h3>IsSame?</h3>
+            <pre class="pre-scrollable"><?php echo PhpDatabaseTools\Compare::isSame($refDbSchema, $targetDbSchema) ? "Yes" : "No"; ?></pre>
           </div>
 
           <div class="col-xs-12">
-            <h3>Upgrade Sql</h3>
-            <pre class="pre-scrollable"><?php echo PhpDatabaseTools\Compare::generateUpdateSql($refDbSchema, $targetDbSchema) ?: "NULL"; ?></pre>
+            <h3>Revision Sql</h3>
+            <pre class="pre-scrollable"><?php echo PhpDatabaseTools\Compare::revisionSql($refDbSchema, $targetDbSchema) ?: "NULL"; ?></pre>
           </div>
 
         </div>
