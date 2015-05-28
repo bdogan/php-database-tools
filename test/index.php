@@ -1,8 +1,8 @@
 <?php
   require_once __DIR__ . '/../vendor/autoload.php';
 
-  $referanceDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "", "database" => "reform_template");
-  $targetDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "", "database" => "reform_2011_08_204");
+  $referanceDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "toor", "database" => "reform_template");
+  $targetDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "toor", "database" => "reform_2011_08_204");
   $Generator = new PhpDatabaseTools\Generator();
 ?>
 <html>

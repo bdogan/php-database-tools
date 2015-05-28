@@ -165,6 +165,19 @@ class Compare
     //$cStr .= "/*!40101 SET character_set_client = @saved_cs_client */" . "\r\n";
     $cStr .= "\r\n";
 
+    if (!empty($structure["triggers"]))
+    {
+      $cStr .= sprintf("DELIMITER %s", "$$") . "\r\n";
+    }
+    foreach ($structure["triggers"] as $trigger => $triggerProp)
+    {
+      $cStr .= sprintf("CREATE TRIGGER `%s` %s %s ON `%s` FOR EACH ROW %s%s", $trigger, $triggerProp["Timing"], $triggerProp["Event"], $table, $triggerProp["Statement"], "$$") . "\r\n";
+    }
+    if (!empty($structure["triggers"]))
+    {
+      $cStr .= sprintf("DELIMITER %s", ";") . "\r\n";
+    }
+
     return $cStr;
   }
 
@@ -200,12 +213,19 @@ class Compare
     {
       $cStr .= " NOT NULL";
     }
-    else
+    elseif ($columnProp["Null"] == "YES")
     {
-      $cStr .= " DEFAULT";
-      if ($columnProp["Default"] == "") $columnProp["Default"] = "NULL";
+      $cStr .= " NULL";
+    }
 
-      if ($columnProp["Default"] == "NULL" || $columnProp["Default"] == "CURRENT_TIMESTAMP")
+    if ($columnProp["Default"] != "")
+    {
+      if ($columnProp["Default"] == "CURRENT_TIMESTAMP")
+        $cStr .= " ON UPDATE CURRENT_TIMESTAMP";
+
+      $cStr .= " DEFAULT";
+
+      if ($columnProp["Default"] == "CURRENT_TIMESTAMP")
         $cStr .= " " . $columnProp["Default"];
       else
         $cStr .= " '" . $columnProp["Default"] . "'";
@@ -243,9 +263,30 @@ class Compare
         $alterStatement[] = sprintf("\tDROP COLUMN `%s`", $column);
     }
 
+    if (!empty($alterStatement))
+    {
+      $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
+      $alterStatement = array();
+    }
+
     // Checking Indexes
     $indexDiff = self::arrayDiff($refTable["indexes"], $targetTable["indexes"], true);
-    foreach ($indexDiff as $key => $result) {
+    foreach ($indexDiff as $key => $result)
+    {
+      if ($result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
+        $alterStatement[] = sprintf("\tDROP INDEX `%s`", $key);
+      elseif ($result == "DROP")
+        $alterStatement[] = sprintf("\tDROP INDEX `%s`", $key);
+    }
+
+    if (!empty($alterStatement))
+    {
+      $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
+      $alterStatement = array();
+    }
+
+    foreach ($indexDiff as $key => $result)
+    {
       $keyType = "";
       $keyAlg = "";
       if ($result == "CREATE_NEW" || $result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
@@ -263,30 +304,42 @@ class Compare
         $alterStatement[] = sprintf("\tADD %s `%s`%s (`%s`)", $keyType, $key, $keyAlg, implode($refTable["indexes"][$key]["Column_name"], "`,`"));
       elseif ($result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
       {
-        $alterStatement[] = sprintf("\tDROP INDEX `%s`", $key);
         $alterStatement[] = sprintf("\tADD %s `%s`%s (`%s`)", $keyType, $key, $keyAlg, implode($refTable["indexes"][$key]["Column_name"], "`,`"));
       }
-      elseif ($result == "DROP")
-        $alterStatement[] = sprintf("\tDROP INDEX `%s`", $key);
+      
     }
 
     if (!empty($alterStatement))
     {
       $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
+      $alterStatement = array();
     }
 
     // Checking Triggers
     $triggerDiff = self::arrayDiff($refTable["triggers"], $targetTable["triggers"], true);
+    if (!empty($triggerDiff))
+    {
+      $uStr .= "\r\n";
+      $uStr .= sprintf("DELIMITER %s", "$$") . "\r\n";
+    }
     foreach ($triggerDiff as $trigger => $result) {
       if ($result == "CREATE_NEW")
-        $uStr .= sprintf("CREATE TRIGGER `%s` %s %s ON `%s` FOR EACH ROW %s;", $trigger, $refTable["triggers"][$trigger]["Timing"], $refTable["triggers"][$trigger]["Event"], $table, $refTable["triggers"][$trigger]["Statement"]) . "\r\n";
+      {
+        $uStr .= sprintf("CREATE TRIGGER `%s` %s %s ON `%s` FOR EACH ROW %s%s", $trigger, $refTable["triggers"][$trigger]["Timing"], $refTable["triggers"][$trigger]["Event"], $table, $refTable["triggers"][$trigger]["Statement"], "$$") . "\r\n";
+      }
       elseif ($result == "CHANGED")
       {
-        $uStr .= sprintf("DROP TRIGGER `%s`;", $trigger) . "\r\n";
-        $uStr .= sprintf("CREATE TRIGGER `%s` %s %s ON `%s` FOR EACH ROW %s;", $trigger, $refTable["triggers"][$trigger]["Timing"], $refTable["triggers"][$trigger]["Event"], $table, $refTable["triggers"][$trigger]["Statement"]) . "\r\n";
+        $uStr .= sprintf("DROP TRIGGER `%s`%s", $trigger, "$$") . "\r\n";
+        $uStr .= sprintf("CREATE TRIGGER `%s` %s %s ON `%s` FOR EACH ROW %s%s", $trigger, $refTable["triggers"][$trigger]["Timing"], $refTable["triggers"][$trigger]["Event"], $table, $refTable["triggers"][$trigger]["Statement"], "$$") . "\r\n";
       }
       elseif ($result == "DROP")
-      $uStr .= sprintf("\tDROP TRIGGER `%s`", $trigger);
+      {
+        $uStr .= sprintf("DROP TRIGGER `%s`%s", $trigger, "$$");
+      }
+    }
+    if (!empty($triggerDiff))
+    {
+      $uStr .= sprintf("DELIMITER %s", ";") . "\r\n";
     }
 
     return $uStr;
