@@ -1,8 +1,7 @@
 <?php
   require_once __DIR__ . '/../vendor/autoload.php';
+  require_once __DIR__ . '/config.php';
 
-  $referanceDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "toor", "database" => "reform_template");
-  $targetDatabase = array("server" => "127.0.0.1", "username" => "root", "password" => "toor", "database" => "reform_2011_08_204");
   $Generator = new PhpDatabaseTools\Generator();
 ?>
 <html>
@@ -50,7 +49,7 @@
           </div>
 
           <div class="col-xs-12">
-            <h3>Revision Sql</h3>
+            <h3>DB1 => DB2 Update Sql</h3>
             <pre class="pre-scrollable"><?php echo PhpDatabaseTools\Compare::revisionSql($refDbSchema, $targetDbSchema) ?: "NULL"; ?></pre>
           </div>
 

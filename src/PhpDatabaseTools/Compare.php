@@ -249,27 +249,57 @@ class Compare
     $columns = array_keys($refTable['columns']);
 
     // Checking Columns
+    $columnDiff = self::arrayDiff($refTable["columns"], $targetTable["columns"]);
+    foreach ($columnDiff as $column => $result) // Checking new created
+    {
+      $columnStatement = self::CreateColumnStatement($column, $refTable["columns"][$column]);
+      $beforeColumn = isset($columns[array_search($column, $columns) - 1]) ? " AFTER `" . $columns[array_search($column, $columns) - 1] . "`" : "";
+
+      if ($result == "CREATE_NEW")
+      {
+        $alterStatement[] = sprintf("\tADD COLUMN %s%s", $columnStatement, $beforeColumn);
+      }
+    }
+
+    // Adding If Created New Column
+    if (!empty($alterStatement))
+    {
+      $tmpTargetColumns = array();
+      foreach ($refTable["columns"] as $column => $value)
+      {
+        if (!isset($targetTable["columns"][$column]))
+        {
+          $tmpTargetColumns[$column] = $refTable["columns"][$column];
+        }
+        else
+        {
+          $tmpTargetColumns[$column] = $targetTable["columns"][$column];
+        }
+      }
+      $targetTable["columns"] = $tmpTargetColumns;
+    }
+
+    // Checking Updated Columns
     $columnDiff = self::arrayDiff($refTable["columns"], $targetTable["columns"], true);
     foreach ($columnDiff as $column => $result)
     {
       $columnStatement = self::CreateColumnStatement($column, $refTable["columns"][$column]);
       $beforeColumn = isset($columns[array_search($column, $columns) - 1]) ? " AFTER `" . $columns[array_search($column, $columns) - 1] . "`" : "";
 
-      if ($result == "CREATE_NEW")
-        $alterStatement[] = sprintf("\tADD COLUMN %s%s", $columnStatement, $beforeColumn);
-      elseif ($result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
+      if ($result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
         $alterStatement[] = sprintf("\tCHANGE COLUMN `%s` %s%s", $column, $columnStatement, $beforeColumn);
       elseif ($result == "DROP")
         $alterStatement[] = sprintf("\tDROP COLUMN `%s`", $column);
     }
 
+    // Writing Changes
     if (!empty($alterStatement))
     {
       $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
       $alterStatement = array();
     }
 
-    // Checking Indexes
+    // Checking Droping Indexes
     $indexDiff = self::arrayDiff($refTable["indexes"], $targetTable["indexes"], true);
     foreach ($indexDiff as $key => $result)
     {
@@ -279,12 +309,14 @@ class Compare
         $alterStatement[] = sprintf("\tDROP INDEX `%s`", $key);
     }
 
+    // Writing Changes
     if (!empty($alterStatement))
     {
       $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
       $alterStatement = array();
     }
 
+    // Checking Created Indexes
     foreach ($indexDiff as $key => $result)
     {
       $keyType = "";
@@ -306,7 +338,7 @@ class Compare
       {
         $alterStatement[] = sprintf("\tADD %s `%s`%s (`%s`)", $keyType, $key, $keyAlg, implode($refTable["indexes"][$key]["Column_name"], "`,`"));
       }
-      
+
     }
 
     if (!empty($alterStatement))

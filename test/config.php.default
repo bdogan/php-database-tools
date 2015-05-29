@@ -1,0 +1,15 @@
+<?php
+
+$referanceDatabase = array(
+  "server" => "",
+  "username" => "",
+  "password" => "",
+  "database" => ""
+);
+
+$targetDatabase = array(
+  "server" => "",
+  "username" => "",
+  "password" => "",
+  "database" => ""
+);
