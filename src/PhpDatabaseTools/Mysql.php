@@ -99,7 +99,7 @@ class Mysql {
      * @return resource A resultset resource
      */
     function getIndexes($table) {
-        return mysql_query(sprintf('SHOW INDEX FROM %s', $table));
+      return mysql_query(sprintf('SHOW INDEX FROM %s', $table));
     }
 
     /**
@@ -115,7 +115,31 @@ class Mysql {
      * @return resource A resultset resource
      */
     function getTriggers($table) {
-        return mysql_query(sprintf('SHOW TRIGGERS FROM %s LIKE \'%s\'', $this->config["database"], $table));
+      return mysql_query(sprintf('SHOW TRIGGERS FROM %s LIKE \'%s\'', $this->config["database"], $table));
+    }
+
+    /**
+     * Get the procedures for the db.
+     * @return resource A resultset resource
+     */
+    function getProcedures() {
+      return mysql_query(sprintf('SELECT definer, name, param_list, body FROM mysql.proc WHERE db = \'%s\' AND type = \'PROCEDURE\'', $this->config["database"]));
+    }
+
+    /**
+     * Get the functions for the db.
+     * @return resource A resultset resource
+     */
+    function getFunctions() {
+      return mysql_query(sprintf('SELECT definer, name, param_list, returns, body FROM mysql.proc WHERE db = \'%s\' AND type = \'FUNCTION\'', $this->config["database"]));
+    }
+
+    /**
+     * Get the views for the db.
+     * @return resource A resultset resource
+     */
+    function getViews() {
+      return mysql_query(sprintf('SELECT TABLE_NAME, VIEW_DEFINITION FROM information_schema.views WHERE TABLE_SCHEMA=\'%s\'', $this->config["database"]));
     }
 
     /**

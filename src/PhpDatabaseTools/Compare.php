@@ -93,7 +93,7 @@ class Compare
   {
       if (empty($differents = self::getDiff($refDbSchema, $targetDbSchema))) return null;
 
-      $sqlStr = self::WriteSqlHeader();
+      $sqlStr = "";
       foreach ($differents as $element => $props)
       {
         if ($element == "tables") // Check if object is table
@@ -108,44 +108,75 @@ class Compare
               $sqlStr .= sprintf("DROP TABLE IF EXISTS `%s`;", $table) . "\r\n";
           }
         }
+        if ($element == "functions" || $element == "procedures") //Check if object procedure or function
+        {
+          foreach ($props as $procedure => $result)
+          {
+            $type = (($element == "functions") ? "FUNCTION" : "PROCEDURE");
+            if ($result == "CREATE_NEW")
+              $sqlStr .= self::CreateProcedureStatement($type, $procedure, $refDbSchema[$element][$procedure]) . "\r\n";
+            elseif ($result == "CHANGED")
+            {
+              $sqlStr .= sprintf("DROP %s IF EXISTS `%s`;", $type, $procedure) . "\r\n";
+              $sqlStr .= self::CreateProcedureStatement($type, $procedure, $refDbSchema[$element][$procedure]) . "\r\n";
+            }
+            elseif ($result == "DROP")
+              $sqlStr .= sprintf("DROP %s IF EXISTS `%s`;", $type, $procedure) . "\r\n";
+          }
+        }
+        if ($element == "views") //Check if object view
+        {
+          foreach ($props as $view => $result)
+          {
+            if ($result == "CREATE_NEW")
+              $sqlStr .= self::CreateViewStatement($view, $refDbSchema[$element][$view]) . "\r\n";
+            elseif ($result == "CHANGED")
+            {
+              $sqlStr .= self::CreateViewStatement($view, $refDbSchema[$element][$view]) . "\r\n";
+            }
+            elseif ($result == "DROP")
+              $sqlStr .= sprintf("DROP VIEW IF EXISTS `%s`;", $view) . "\r\n";
+          }
+        }
       }
       return $sqlStr;
   }
 
-  private static function WriteSqlHeader()
+  private static function CreateViewStatement($name, $structure)
   {
-    $hStr = "";
-    $hStr .= "-- SQL revision" . "\r\n";
-    $hStr .= "-----------------------------------------------" . "\r\n";
-    $hStr .= "\r\n";
-    $hStr .= "\r\n";
-    $hStr .= "/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;" . "\r\n";
-    $hStr .= "/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;" . "\r\n";
-    $hStr .= "/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;" . "\r\n";
-    $hStr .= "/*!40101 SET NAMES utf8 */;" . "\r\n";
-    $hStr .= "/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;" . "\r\n";
-    $hStr .= "/*!40103 SET TIME_ZONE='+00:00' */;" . "\r\n";
-    $hStr .= "/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;" . "\r\n";
-    $hStr .= "/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;" . "\r\n";
-    $hStr .= "/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;" . "\r\n";
-    $hStr .= "/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;" . "\r\n";
-    $hStr .= "\r\n";
+    $vSql = "";
+    $vSql .= sprintf("CREATE OR REPLACE VIEW `%s` AS %s;", $name, $structure['VIEW_DEFINITION']) . "\r\n";
 
-    //return $hStr;
-    return "";
+    return $vSql;
+  }
+
+  private static function CreateProcedureStatement($type, $name, $structure)
+  {
+    $definer = explode("@", $structure['definer']);
+    $definer = sprintf('`%s`@`%s`', $definer[0], $definer[1]);
+
+    $returns = "";
+    if ($type == "FUNCTION")
+    {
+      $returns = sprintf(" RETURNS %s", $structure['returns']);
+    }
+
+    $pSql = "";
+
+    $pSql .= sprintf("DELIMITER %s", "$$") . "\r\n";
+    $pSql .= sprintf("CREATE DEFINER=%s %s `%s`(%s)%s", $definer, $type, $name, $structure['param_list'], $returns) . "\r\n";
+    $pSql .= sprintf("%s%s", $structure['body'], "$$") . "\r\n";
+    $pSql .= sprintf("DELIMITER %s", ";") . "\r\n";
+
+    return $pSql;
   }
 
   private static function CreateStatement($table, $structure)
   {
     $cStr = "";
 
-    //$cStr .= "--" . "\r\n";
-    //$cStr .= sprintf("-- Table structure for table `%s`", $table) . "\r\n";
-    //$cStr .= "--" . "\r\n";
     $cStr .= "\r\n";
     $cStr .= sprintf("DROP TABLE IF EXISTS `%s`;", $table) . "\r\n";
-    //$cStr .= "/*!40101 SET @saved_cs_client     = @@character_set_client */;" . "\r\n";
-    //$cStr .= "/*!40101 SET character_set_client = utf8 */;" . "\r\n";
     $cStr .= sprintf("CREATE TABLE `%s` (", $table) . "\r\n";
 
     $columns = array();
@@ -162,7 +193,6 @@ class Compare
     }
     $cStr .= implode($indexes, ",\r\n") . "\r\n";
     $cStr .= sprintf(") ENGINE=%s DEFAULT CHARSET=%s;", $structure["status"]["Engine"], $structure["status"]["Charset"]) . "\r\n";
-    //$cStr .= "/*!40101 SET character_set_client = @saved_cs_client */" . "\r\n";
     $cStr .= "\r\n";
 
     if (!empty($structure["triggers"]))
@@ -220,9 +250,6 @@ class Compare
 
     if ($columnProp["Default"] != "")
     {
-      if ($columnProp["Default"] == "CURRENT_TIMESTAMP")
-        $cStr .= " ON UPDATE CURRENT_TIMESTAMP";
-
       $cStr .= " DEFAULT";
 
       if ($columnProp["Default"] == "CURRENT_TIMESTAMP")
@@ -231,9 +258,9 @@ class Compare
         $cStr .= " '" . $columnProp["Default"] . "'";
     }
 
-    if ($columnProp["Extra"] == "auto_increment")
+    if ($columnProp["Extra"] != "")
     {
-      $cStr .= " AUTO_INCREMENT";
+      $cStr .= " " . strtoupper($columnProp["Extra"]);
     }
 
     return $cStr;

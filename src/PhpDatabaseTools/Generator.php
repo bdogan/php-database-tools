@@ -39,6 +39,9 @@ class Generator {
     {
       $tables = $this->tables();
       foreach ($tables as $table) {
+        $status = $this->status($table);
+        if (empty($status)) continue; //Posible view
+
         $tableStructure[$table] = array(
           "columns" => $this->tableColumns($table), // Get Columns
           "indexes" => $this->index($table), // Get Indexes
@@ -46,6 +49,9 @@ class Generator {
           "status" => $this->status($table) // Get Status
         );
       }
+      $procedures = $this->procedures();
+      $functions = $this->functions();
+      $views = $this->views();
     }
     catch (Exception $e)
     {
@@ -57,11 +63,14 @@ class Generator {
     }
 
     $dbStructure["tables"] = $tableStructure;
+    $dbStructure["procedures"] = $procedures;
+    $dbStructure["functions"] = $functions;
+    $dbStructure["views"] = $views;
 
     return $dbStructure;
   }
 
-  public function status($table)
+  private function status($table)
   {
     $status = array();
     if (!($result = $this->connection->getStatus($table))) { return $status; }
@@ -75,7 +84,40 @@ class Generator {
     return $status;
   }
 
-  public function tables(){
+  private function views(){
+    $views = array();
+    if (!($result = $this->connection->getViews())) { return $views; }
+    while($row = $this->connection->row($result)) {
+      $name = $row['TABLE_NAME'];
+      unset($row['TABLE_NAME']);
+      $views[$name] = $row;
+    }
+    return $views;
+  }
+
+  private function procedures(){
+    $procedures = array();
+    if (!($result = $this->connection->getProcedures())) { return $procedures; }
+    while($row = $this->connection->row($result)) {
+      $name = $row['name'];
+      unset($row['name']);
+      $procedures[$name] = $row;
+    }
+    return $procedures;
+  }
+
+  private function functions(){
+    $functions = array();
+    if (!($result = $this->connection->getFunctions())) { return $functions; }
+    while($row = $this->connection->row($result)) {
+      $name = $row['name'];
+      unset($row['name']);
+      $functions[$name] = $row;
+    }
+    return $functions;
+  }
+
+  private function tables(){
     $tables = array();
     if (!($result = $this->connection->getTables())) { return $tables; }
     while($row = $this->connection->row($result)) {
@@ -86,7 +128,7 @@ class Generator {
     return $tables;
   }
 
-  public function index($table){
+  private function index($table){
     $indexes = array();
     if (!($result = $this->connection->getIndexes($table))) { return $indexes; }
     while($row = $this->connection->row($result)) {
@@ -111,7 +153,7 @@ class Generator {
     return $indexes;
   }
 
-  public function trigger($table){
+  private function trigger($table){
     $triggers = array();
     if (!($result = $this->connection->getTriggers($table))) { return $triggers; }
     while($row = $this->connection->row($result)) {
@@ -130,7 +172,7 @@ class Generator {
     return $triggers;
   }
 
-  public function tableColumns($table){
+  private function tableColumns($table){
     $columns = array();
     if (!($result = $this->connection->getColumns($table))) { return $columns; }
     while($row = $this->connection->row($result)) {
