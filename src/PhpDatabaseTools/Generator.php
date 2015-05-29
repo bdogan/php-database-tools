@@ -30,7 +30,9 @@ class Generator {
   }
 
   public function Generate($config){
-    $this->connect($config);
+    if (!$this->connect($config))
+      throw new Exception("Connection failed");
+
 
     $dbStructure = array();
     $tableStructure = array();
