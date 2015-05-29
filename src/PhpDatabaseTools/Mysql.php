@@ -16,7 +16,7 @@ class Mysql {
      */
     function connect($config) {
       $this->config = $config;
-      if ($this->db = @mysql_pconnect($config['server'], $config['username'], $config['password'])) {
+      if (($this->db = @mysql_pconnect($config['server'], $config['username'], $config['password'])) !== false) {
         if (isset($config['database']) && $this->select_db($config['database'])) return TRUE;
         return TRUE;
       }
