@@ -305,6 +305,14 @@ class Compare
       $targetTable["columns"] = $tmpTargetColumns;
     }
 
+    // Writing Changes
+    if (!empty($alterStatement))
+    {
+      $uStr .= "\r\n";
+      $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
+      $alterStatement = array();
+    }
+
     // Checking Updated Columns
     $columnDiff = self::arrayDiff($refTable["columns"], $targetTable["columns"], true);
     foreach ($columnDiff as $column => $result)
@@ -322,6 +330,7 @@ class Compare
     // Writing Changes
     if (!empty($alterStatement))
     {
+      $uStr .= "\r\n";
       $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
       $alterStatement = array();
     }
@@ -339,6 +348,7 @@ class Compare
     // Writing Changes
     if (!empty($alterStatement))
     {
+      $uStr .= "\r\n";
       $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
       $alterStatement = array();
     }
@@ -370,6 +380,7 @@ class Compare
 
     if (!empty($alterStatement))
     {
+      $uStr .= "\r\n";
       $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
       $alterStatement = array();
     }
