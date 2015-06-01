@@ -279,11 +279,10 @@ class Compare
     $columnDiff = self::arrayDiff($refTable["columns"], $targetTable["columns"]);
     foreach ($columnDiff as $column => $result) // Checking new created
     {
-      $columnStatement = self::CreateColumnStatement($column, $refTable["columns"][$column]);
-      $beforeColumn = isset($columns[array_search($column, $columns) - 1]) ? " AFTER `" . $columns[array_search($column, $columns) - 1] . "`" : "";
-
       if ($result == "CREATE_NEW")
       {
+        $columnStatement = self::CreateColumnStatement($column, $refTable["columns"][$column]);
+        $beforeColumn = isset($columns[array_search($column, $columns) - 1]) ? " AFTER `" . $columns[array_search($column, $columns) - 1] . "`" : "";
         $alterStatement[] = sprintf("\tADD COLUMN %s%s", $columnStatement, $beforeColumn);
       }
     }
@@ -310,11 +309,12 @@ class Compare
     $columnDiff = self::arrayDiff($refTable["columns"], $targetTable["columns"], true);
     foreach ($columnDiff as $column => $result)
     {
-      $columnStatement = self::CreateColumnStatement($column, $refTable["columns"][$column]);
-      $beforeColumn = isset($columns[array_search($column, $columns) - 1]) ? " AFTER `" . $columns[array_search($column, $columns) - 1] . "`" : "";
-
       if ($result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
+      {
+        $columnStatement = self::CreateColumnStatement($column, $refTable["columns"][$column]);
+        $beforeColumn = isset($columns[array_search($column, $columns) - 1]) ? " AFTER `" . $columns[array_search($column, $columns) - 1] . "`" : "";
         $alterStatement[] = sprintf("\tCHANGE COLUMN `%s` %s%s", $column, $columnStatement, $beforeColumn);
+      }
       elseif ($result == "DROP")
         $alterStatement[] = sprintf("\tDROP COLUMN `%s`", $column);
     }
