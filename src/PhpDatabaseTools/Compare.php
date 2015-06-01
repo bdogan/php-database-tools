@@ -10,12 +10,19 @@ class Compare
     $result = array();
     foreach ($data as $key => $value)
     {
-      if (is_array($value))
-        $result[$key] = crc32(serialize($value));
-      else
-        $result[$key] = crc32($value);
+      $value = self::clearArray($value);
+      if (is_array($value)) $value = serialize($value);
+      $result[$key] = crc32($value);
     }
     return $result;
+  }
+
+  private static function clearArray($data){
+    if (!is_array($data)) return trim(preg_replace("/[\n|\r]/", "", $data));
+    foreach ($data as $key => $value) {
+      $data[$key] = self::clearArray($value);
+    }
+    return $data;
   }
 
   public static function generateHash($data)
@@ -49,7 +56,7 @@ class Compare
         $result[$key] = "POS_CHANGE_" . array_search($key, $arr1Keys) . "_" . array_search($key, $arr2Keys);
         continue;
       }
-      if ($arr2[$key] === $arr1[$key])
+      if ($arr2Hash[$key] === $arr1Hash[$key])
       {
         continue;
       }
