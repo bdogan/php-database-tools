@@ -5,6 +5,19 @@ namespace PhpDatabaseTools;
 class Compare
 {
 
+  public static $_ignoreTables = array();
+
+  public static function setIgnoreTable($tables)
+  {
+    if (!is_array($tables)) return;
+    self::$_ignoreTables = $tables;
+  }
+
+  public static function getIgnoreTable()
+  {
+    return self::$_ignoreTables;
+  }
+
   public static function hashArray($data)
   {
     $result = array();
@@ -35,7 +48,61 @@ class Compare
     return $result;
   }
 
-  public static function arrayDiff($arr1, $arr2, $posCheck = false)
+  private static function beforeCompare($refDbSchema, $targetDbSchema)
+  {
+    $finalTargetDb = array();
+    foreach ($targetDbSchema as $element => $props)
+    {
+      $finalTargetDb[$element] = array();
+
+      if ($element == "tables")
+      {
+        foreach ($targetDbSchema[$element] as $table => $types)
+        {
+          $finalTargetDb[$element][$table] = array();
+
+          if (!isset($refDbSchema[$element][$table]))
+          {
+            $finalTargetDb[$element][$table] = $types;
+            continue;
+          }
+
+          foreach ($targetDbSchema[$element][$table] as $type => $tableProps)
+          {
+            $finalTargetDb[$element][$table][$type] = array();
+
+            if ($type == "columns")
+            {
+              $finalTargetDb[$element][$table][$type] = $tableProps;
+              continue;
+            }
+
+            foreach ($refDbSchema[$element][$table][$type] as $key => $value)
+            {
+              if (isset($targetDbSchema[$element][$table][$type][$key]))
+              {
+                $finalTargetDb[$element][$table][$type][$key] = $targetDbSchema[$element][$table][$type][$key];
+                unset($targetDbSchema[$element][$table][$type][$key]);
+              }
+            }
+
+            foreach ($targetDbSchema[$element][$table][$type] as $key => $value)
+            {
+              $finalTargetDb[$element][$table][$type][$key] = $targetDbSchema[$element][$table][$type][$key];
+            }
+          }
+        }
+      }
+      else
+      {
+        $finalTargetDb[$element] = $targetDbSchema[$element];
+      }
+    }
+
+    return $finalTargetDb;
+  }
+
+  public static function arrayDiff($arr1, $arr2, $posCheck = false, $ignoredKeys = array())
   {
     $result = array();
 
@@ -45,7 +112,9 @@ class Compare
     $arr1Keys = array_keys($arr1Hash);
     $arr2Keys = array_keys($arr2Hash);
 
-    foreach ($arr1 as $key => $hash) {
+    foreach ($arr1Hash as $key => $hash) {
+      if (in_array($key, $ignoredKeys)) continue;
+
       if (!isset($arr2[$key]))
       {
         $result[$key] = "CREATE_NEW";
@@ -56,14 +125,14 @@ class Compare
         $result[$key] = "POS_CHANGE_" . array_search($key, $arr1Keys) . "_" . array_search($key, $arr2Keys);
         continue;
       }
-      if ($arr2Hash[$key] === $arr1Hash[$key])
-      {
-        continue;
-      }
+      if ($arr2Hash[$key] === $arr1Hash[$key]) continue;
+
       $result[$key] = "CHANGED";
     }
 
     foreach ($arr2 as $key => $hash) {
+      if (in_array($key, $ignoredKeys)) continue;
+
       if (!isset($arr1[$key]))
       {
         $result[$key] = "DROP";
@@ -76,9 +145,18 @@ class Compare
   public static function getDiff($refDbSchema, $targetDbSchema)
   {
     $result = array();
+    $targetDbSchema = self::beforeCompare($refDbSchema, $targetDbSchema);
+
     foreach ($refDbSchema as $element => $props)
     {
-      $result[$element] = self::arrayDiff($refDbSchema[$element], $targetDbSchema[$element]);
+      if ($element == "tables")
+      {
+        $result[$element] = self::arrayDiff($refDbSchema[$element], $targetDbSchema[$element], false, self::$_ignoreTables);
+      }
+      else
+      {
+        $result[$element] = self::arrayDiff($refDbSchema[$element], $targetDbSchema[$element]);
+      }
     }
     return $result;
   }
@@ -307,7 +385,12 @@ class Compare
         else
         {
           $tmpTargetColumns[$column] = $targetTable["columns"][$column];
+          unset($targetTable["columns"][$column]);
         }
+      }
+      foreach ($targetTable["columns"] as $column => $value)
+      {
+        $tmpTargetColumns[$column] = $targetTable["columns"][$column];
       }
       $targetTable["columns"] = $tmpTargetColumns;
     }
@@ -343,10 +426,10 @@ class Compare
     }
 
     // Checking Droping Indexes
-    $indexDiff = self::arrayDiff($refTable["indexes"], $targetTable["indexes"], true);
+    $indexDiff = self::arrayDiff($refTable["indexes"], $targetTable["indexes"]);
     foreach ($indexDiff as $key => $result)
     {
-      if ($result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
+      if ($result == "CHANGED")
         $alterStatement[] = sprintf("\tDROP INDEX `%s`", $key);
       elseif ($result == "DROP")
         $alterStatement[] = sprintf("\tDROP INDEX `%s`", $key);
@@ -365,7 +448,7 @@ class Compare
     {
       $keyType = "";
       $keyAlg = "";
-      if ($result == "CREATE_NEW" || $result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
+      if ($result == "CREATE_NEW" || $result == "CHANGED")
       {
         if ($refTable["indexes"][$key]["Index_type"] == "BTREE") $keyType = "INDEX";
         if ($refTable["indexes"][$key]["Index_type"] == "HASH") $keyType = "INDEX";
@@ -378,13 +461,14 @@ class Compare
 
       if ($result == "CREATE_NEW")
         $alterStatement[] = sprintf("\tADD %s `%s`%s (`%s`)", $keyType, $key, $keyAlg, implode($refTable["indexes"][$key]["Column_name"], "`,`"));
-      elseif ($result == "CHANGED" || strpos($result, "POS_CHANGE_") === 0)
+      elseif ($result == "CHANGED")
       {
         $alterStatement[] = sprintf("\tADD %s `%s`%s (`%s`)", $keyType, $key, $keyAlg, implode($refTable["indexes"][$key]["Column_name"], "`,`"));
       }
 
     }
 
+    // Writing Changes
     if (!empty($alterStatement))
     {
       $uStr .= "\r\n";
@@ -393,7 +477,7 @@ class Compare
     }
 
     // Checking Triggers
-    $triggerDiff = self::arrayDiff($refTable["triggers"], $targetTable["triggers"], true);
+    $triggerDiff = self::arrayDiff($refTable["triggers"], $targetTable["triggers"]);
     if (!empty($triggerDiff))
     {
       $uStr .= "\r\n";
@@ -417,6 +501,20 @@ class Compare
     if (!empty($triggerDiff))
     {
       $uStr .= sprintf("DELIMITER %s", ";") . "\r\n";
+    }
+
+    // Checking Table Engine and Encoding
+    if ($refTable["status"] !== $targetTable["status"])
+    {
+      $alterStatement[] = sprintf("ENGINE=`%s` DEFAULT CHARACTER SET %s COLLATE %s", $refTable["status"]["Engine"], $refTable["status"]["Charset"], $refTable["status"]["Collation"]) . "\r\n";
+    }
+
+    // Writing Changes
+    if (!empty($alterStatement))
+    {
+      $uStr .= "\r\n";
+      $uStr .= sprintf("ALTER TABLE `%s`\r\n%s;\r\n", $table, implode($alterStatement, ",\r\n"));
+      $alterStatement = array();
     }
 
     return $uStr;

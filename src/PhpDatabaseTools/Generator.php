@@ -180,6 +180,7 @@ class Generator {
       if (!isset($keys[0])) continue;
       $field = $row[$keys[0]];
       unset($row[$keys[0]]);
+      if (isset($row["Key"])) unset($row["Key"]);
       $columns[$field] = $row;
     }
     return $columns;

@@ -13,3 +13,7 @@ $targetDatabase = array(
   "password" => "",
   "database" => ""
 );
+
+$ignore = array(
+  "table" => array()
+);

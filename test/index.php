@@ -2,6 +2,14 @@
   require_once __DIR__ . '/../vendor/autoload.php';
   require_once __DIR__ . '/config.php';
 
+  if (isset($ignore) && is_array($ignore))
+  {
+    if (isset($ignore["table"]) && is_array($ignore["table"]))
+    {
+      PhpDatabaseTools\Compare::setIgnoreTable($ignore["table"]);
+    }
+  }
+
   $Generator = new PhpDatabaseTools\Generator();
 ?>
 <html>
