@@ -6,11 +6,22 @@ class Compare
 {
 
   public static $_ignoreTables = array();
+  public static $_way = "two";
 
   public static function setIgnoreTable($tables)
   {
     if (!is_array($tables)) return;
     self::$_ignoreTables = $tables;
+  }
+
+  public static function enableOneWayUpdate()
+  {
+    self::$_way = "one";
+  }
+
+  public static function disableOneWayUpdate()
+  {
+    self::$_way = "two";
   }
 
   public static function getIgnoreTable()
@@ -59,13 +70,14 @@ class Compare
       {
         foreach ($targetDbSchema[$element] as $table => $types)
         {
-          $finalTargetDb[$element][$table] = array();
 
           if (!isset($refDbSchema[$element][$table]))
           {
-            $finalTargetDb[$element][$table] = $types;
+            if (self::$_way == "two") $finalTargetDb[$element][$table] = $types;
             continue;
           }
+
+          $finalTargetDb[$element][$table] = array();
 
           foreach ($targetDbSchema[$element][$table] as $type => $tableProps)
           {
@@ -73,7 +85,21 @@ class Compare
 
             if ($type == "columns")
             {
-              $finalTargetDb[$element][$table][$type] = $tableProps;
+              if (self::$_way == "one")
+              {
+                foreach ($refDbSchema[$element][$table]["columns"] as $key => $value)
+                {
+                  if (isset($targetDbSchema[$element][$table]["columns"][$key]))
+                  {
+                    $finalTargetDb[$element][$table]["columns"][$key] = $targetDbSchema[$element][$table]["columns"][$key];
+                    unset($targetDbSchema[$element][$table]["columns"][$key]);
+                  }
+                }
+              }
+              else
+              {
+                $finalTargetDb[$element][$table][$type] = $tableProps;
+              }
               continue;
             }
 
@@ -86,10 +112,14 @@ class Compare
               }
             }
 
-            foreach ($targetDbSchema[$element][$table][$type] as $key => $value)
+            if (self::$_way == "two")
             {
-              $finalTargetDb[$element][$table][$type][$key] = $targetDbSchema[$element][$table][$type][$key];
+              foreach ($targetDbSchema[$element][$table][$type] as $key => $value)
+              {
+                $finalTargetDb[$element][$table][$type][$key] = $targetDbSchema[$element][$table][$type][$key];
+              }
             }
+
           }
         }
       }
@@ -484,6 +514,12 @@ class Compare
       $uStr .= sprintf("DELIMITER %s", "$$") . "\r\n";
     }
     foreach ($triggerDiff as $trigger => $result) {
+      if ($result == "DROP")
+      {
+        $uStr .= sprintf("DROP TRIGGER `%s`%s", $trigger, "$$") . "\r\n";
+      }
+    }
+    foreach ($triggerDiff as $trigger => $result) {
       if ($result == "CREATE_NEW")
       {
         $uStr .= sprintf("CREATE TRIGGER `%s` %s %s ON `%s` FOR EACH ROW %s%s", $trigger, $refTable["triggers"][$trigger]["Timing"], $refTable["triggers"][$trigger]["Event"], $table, $refTable["triggers"][$trigger]["Statement"], "$$") . "\r\n";
@@ -492,10 +528,6 @@ class Compare
       {
         $uStr .= sprintf("DROP TRIGGER `%s`%s", $trigger, "$$") . "\r\n";
         $uStr .= sprintf("CREATE TRIGGER `%s` %s %s ON `%s` FOR EACH ROW %s%s", $trigger, $refTable["triggers"][$trigger]["Timing"], $refTable["triggers"][$trigger]["Event"], $table, $refTable["triggers"][$trigger]["Statement"], "$$") . "\r\n";
-      }
-      elseif ($result == "DROP")
-      {
-        $uStr .= sprintf("DROP TRIGGER `%s`%s", $trigger, "$$");
       }
     }
     if (!empty($triggerDiff))

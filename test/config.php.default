@@ -17,3 +17,5 @@ $targetDatabase = array(
 $ignore = array(
   "table" => array()
 );
+
+$oneWay = false;

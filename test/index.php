@@ -10,6 +10,11 @@
     }
   }
 
+  if (isset($oneWay) && $oneWay == true)
+    PhpDatabaseTools\Compare::enableOneWayUpdate();
+  else
+    PhpDatabaseTools\Compare::disableOneWayUpdate();
+
   $Generator = new PhpDatabaseTools\Generator();
 ?>
 <html>
